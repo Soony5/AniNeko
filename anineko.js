@@ -14,7 +14,7 @@ async function searchResults(keyword) {
         const query = keyword.replace(/\s+/g, '+');
         const html = await soraFetch(`https://anineko.to/browser?keyword=${query}`);
         if (!html) return JSON.stringify([{ title: 'Errore: Nessuna risposta dal server', href: '', image: '' }]);
-        if (html.includes('Just a moment...') || html.includes('cloudflare')) {
+              if (html.indexOf('Just a moment...') !== -1 || html.indexOf('cloudflare') !== -1) {
             return JSON.stringify([{ title: 'Errore: Cloudflare ha bloccato la richiesta', href: '', image: '' }]);
         }
 
