@@ -11,28 +11,49 @@ async function _fetchPage(url) {
 
 async function searchResults(keyword) {
     try {
-        const html = await soraFetch(`https://anineko.to/browser?keyword=${encodeURIComponent(keyword)}`);
+        const query = keyword.replace(/\s+/g, '+');
+        const html = await soraFetch(`https://anineko.to/browser?keyword=${query}`);
+        if (!html) return JSON.stringify([{ title: 'Errore: Nessuna risposta dal server', href: '', image: '' }]);
+        if (html.includes('Just a moment...') || html.includes('cloudflare')) {
+            return JSON.stringify([{ title: 'Errore: Cloudflare ha bloccato la richiesta', href: '', image: '' }]);
+        }
+
         const results = [];
-        const regex = /<a class="nv-anime-thumb[^"]*" href="([^"]+)">\s*<img src="([^"]+)" alt="([^"]+)"/g;
+        const regex = /<article class="nv-anime-card[^>]*>([\s\S]*?)<\/article>/g;
         let match;
         const seen = new Set();
         while ((match = regex.exec(html)) !== null) {
-            const href = 'https://anineko.to' + match[1].trim();
-            if (!seen.has(href)) {
-                seen.add(href);
-                results.push({ title: match[3].replace(/&quot;/g, '"').trim(), href, image: match[2].trim() });
+            const block = match[1];
+            const hrefMatch = block.match(/href="([^"]+)"/);
+            const imgMatch = block.match(/src="([^"]+)"/);
+            const altMatch = block.match(/alt="([^"]+)"/);
+            if (hrefMatch && imgMatch && altMatch) {
+                const href = 'https://anineko.to' + hrefMatch[1].trim();
+                if (!seen.has(href)) {
+                    seen.add(href);
+                    results.push({ 
+                        title: altMatch[1].replace(/&quot;/g, '"').trim(), 
+                        href, 
+                        image: imgMatch[1].trim() 
+                    });
+                }
             }
         }
+        
+        if (results.length === 0) {
+            return JSON.stringify([{ title: 'Nessun risultato trovato o regex fallita', href: '', image: '' }]);
+        }
+        
         return JSON.stringify(results);
     } catch (e) {
-        return JSON.stringify([{ title: 'Error', image: '', href: '' }]);
+        return JSON.stringify([{ title: 'Errore: ' + e.message, image: '', href: '' }]);
     }
 }
 
 async function extractDetails(url) {
     try {
         const html = await _fetchPage(url);
-        let description = 'No description found';
+        let description = 'Nessuna descrizione trovata';
 
         const metaIdx = html.indexOf('<meta name="description"');
         if (metaIdx !== -1) {
@@ -43,7 +64,7 @@ async function extractDetails(url) {
 
         return JSON.stringify([{ description, aliases: '', airdate: '' }]);
     } catch (e) {
-        return JSON.stringify([{ description: 'Error loading description', aliases: '', airdate: '' }]);
+        return JSON.stringify([{ description: 'Errore durante il caricamento della descrizione', aliases: '', airdate: '' }]);
     }
 }
 
@@ -51,23 +72,28 @@ async function extractChapters(url) {
     try {
         const html = await _fetchPage(url);
 
-        const regex = /<a class="nv-info-episode-main" href="([^"]+)">/g;
+        const regex = /href="([^"]+\/watch\/[^"]+\/ep-\d+)"/g;
         const chapters = [];
         const seen = new Set();
         let match;
-        let number = 1;
+        
         while ((match = regex.exec(html)) !== null) {
-            const href = 'https://anineko.to' + match[1].trim();
-            if (!seen.has(href)) {
-                seen.add(href);
-                const epMatch = href.match(/ep-(\d+)/);
-                const title = epMatch ? `Episode ${epMatch[1]}` : `Episode ${number}`;
-                chapters.push({ href, title: title });
-                number++;
+            let epHref = match[1].trim();
+            if (epHref.startsWith('/')) {
+                epHref = 'https://anineko.to' + epHref;
+            }
+            if (!seen.has(epHref)) {
+                seen.add(epHref);
+                const epMatch = epHref.match(/ep-(\d+)/);
+                const numberStr = epMatch ? epMatch[1] : null;
+                if (numberStr) {
+                    chapters.push({ href: epHref, title: `Episodio ${numberStr}`, num: parseInt(numberStr) });
+                }
             }
         }
 
-        return JSON.stringify(chapters.map((ch, i) => ({ ...ch, number: i + 1 })));
+        chapters.sort((a, b) => a.num - b.num);
+        return JSON.stringify(chapters.map((ch, i) => ({ href: ch.href, title: ch.title, number: i + 1 })));
     } catch (e) {
         return JSON.stringify([]);
     }
