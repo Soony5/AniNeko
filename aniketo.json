@@ -1,0 +1,20 @@
+{
+    "sourceName": "AniNeko",
+    "iconUrl": "https://anineko.to/icon/android-chrome-192x192.png",
+    "author": {
+        "name": "Soony5",
+        "icon": "https://files.catbox.moe/8r9nye.png",
+        "url": "https://github.com/Soony5"
+    },
+    "version": "1.0.0",
+    "language": "English",
+    "streamType": "anime",
+    "quality": "HD",
+    "baseUrl": "https://anineko.to/",
+    "searchBaseUrl": "https://anineko.to/browser?keyword=%s",
+    "scriptUrl": "https://raw.githubusercontent.com/Soony5/AniNeko/refs/heads/main/anineko.js",
+    "type": "anime",
+    "asyncJS": true,
+    "novel": false,
+    "downloadSupport": false
+}
