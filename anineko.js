@@ -14,7 +14,7 @@ async function searchResults(keyword) {
         const query = keyword.replace(/\s+/g, '+');
         const html = await soraFetch(`https://anineko.to/browser?keyword=${query}`);
         if (!html) return JSON.stringify([{ title: 'Errore: Nessuna risposta dal server', href: '', image: '' }]);
-              if (html.indexOf('Just a moment...') !== -1 || html.indexOf('cloudflare') !== -1) {
+        if (html.indexOf('Just a moment...') !== -1 || html.indexOf('cloudflare') !== -1) {
             return JSON.stringify([{ title: 'Errore: Cloudflare ha bloccato la richiesta', href: '', image: '' }]);
         }
 
@@ -114,7 +114,13 @@ async function extractText(url) {
 
 async function soraFetch(url, options = { headers: {}, method: 'GET', body: null }) {
     try {
-        return await fetchv2(url, options.headers ?? {}, options.method ?? 'GET', options.body ?? null);
+        let res = await fetchv2(url, options.headers ?? {}, options.method ?? 'GET', options.body ?? null);
+        if (res && typeof res === 'object') {
+            if (typeof res.text === 'function') return await res.text();
+            if (res.body) return String(res.body);
+            return JSON.stringify(res);
+        }
+        return String(res);
     } catch (e) {
         try {
             const res = await fetch(url, options);
